@@ -230,7 +230,7 @@ struct MicGlyph: View {
 
 /// Icon paths from the Paper artboards (SVG viewBox coordinates, scaled to the frame).
 struct Glyph: Shape {
-    enum Kind { case collapse, expand, check, chevron, calendar, micBody, micStand, close, gear, minus, plus }
+    enum Kind { case collapse, expand, check, chevron, calendar, micBody, micStand, close, gear, minus, plus, trash }
     let kind: Kind
     init(_ kind: Kind) { self.kind = kind }
 
@@ -247,6 +247,9 @@ struct Glyph: Shape {
         case .close: box = CGSize(width: 12, height: 12); line([(1.5, 1.5), (10.5, 10.5)]); line([(10.5, 1.5), (1.5, 10.5)])
         case .minus: box = CGSize(width: 12, height: 12); line([(1.5, 6), (10.5, 6)])
         case .plus: box = CGSize(width: 12, height: 12); line([(1.5, 6), (10.5, 6)]); line([(6, 1.5), (6, 10.5)])
+        case .trash:
+            line([(1.5, 3.5), (12.5, 3.5)]); line([(5, 3.5), (5, 1.5), (9, 1.5), (9, 3.5)])
+            line([(3, 3.5), (3.8, 12.5), (10.2, 12.5), (11, 3.5)]); line([(5.8, 6), (5.8, 10)]); line([(8.2, 6), (8.2, 10)])
         case .gear:
             p.addEllipse(in: CGRect(x: 4, y: 4, width: 6, height: 6))
             for i in 0..<8 {
@@ -260,6 +263,24 @@ struct Glyph: Shape {
             line([(10, 18.5), (10, 22.5)])
         }
         return p.applying(CGAffineTransform(translationX: r.minX, y: r.minY).scaledBy(x: r.width / box.width, y: r.height / box.height))
+    }
+}
+
+/// Catches right-click / ctrl-click only; every other event falls through to the SwiftUI view underneath.
+struct RightClickCatcher: NSViewRepresentable {
+    let action: () -> Void
+    func makeNSView(context: Context) -> CatcherView { CatcherView() }
+    func updateNSView(_ v: CatcherView, context: Context) { v.action = action }
+
+    final class CatcherView: NSView {
+        var action: (() -> Void)?
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard let e = NSApp.currentEvent else { return nil }
+            let secondary = e.type == .rightMouseDown || (e.type == .leftMouseDown && e.modifierFlags.contains(.control))
+            return secondary ? super.hitTest(point) : nil
+        }
+        override func rightMouseDown(with event: NSEvent) { action?() }
+        override func mouseDown(with event: NSEvent) { action?() }  // only reached for ctrl-click (see hitTest)
     }
 }
 

@@ -54,6 +54,9 @@ final class AppModel: ObservableObject {
     @Published var showSettings = false
     @Published var micPickerOpen = false
     @Published var fullScreen = false
+    /// Row whose right-click Delete action is showing (one at a time). Any other click, scroll or Esc dismisses it.
+    @Published var revealedItem: UUID? { didSet { updateRevealMonitor() } }
+    private var revealMonitor: Any?
     /// Banner text when the data file can't be read or written; edits fail loudly while set.
     @Published var dataError: (title: String, detail: String)?
     /// Short-lived inline message (e.g. mic permission) shown under the add bar.
@@ -141,6 +144,34 @@ final class AppModel: ObservableObject {
     }
 
     func deleteItem(_ listID: UUID, _ itemID: UUID) { updateList(listID) { $0.items.removeAll { $0.id == itemID } } }
+
+    func toggleReveal(_ id: UUID) { withAnimation(motion(springy)) { revealedItem = revealedItem == id ? nil : id } }
+
+    /// While a row is revealed: left-up, right-down, scroll or Esc anywhere closes it — unless that same event
+    /// changed the reveal itself (Delete pressed, another row right-clicked), hence the compare-after-dispatch.
+    private func updateRevealMonitor() {
+        if revealedItem == nil {
+            if let r = revealMonitor { NSEvent.removeMonitor(r) }
+            revealMonitor = nil
+            return
+        }
+        guard revealMonitor == nil else { return }
+        revealMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseDown, .scrollWheel, .keyDown]) { [weak self] e in
+            let esc = e.type == .keyDown && e.keyCode == 53
+            if e.type == .keyDown && !esc { return e }
+            if e.type == .leftMouseUp && e.modifierFlags.contains(.control) { return e }  // end of the ctrl-click that revealed
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let before = self.revealedItem
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        if self.revealedItem == before { withAnimation(motion(springy)) { self.revealedItem = nil } }
+                    }
+                }
+            }
+            return esc ? nil : e
+        }
+    }
 
     /// false = a list with that name (case-insensitive) already exists; nothing written.
     func addList(_ raw: String) -> Bool {
