@@ -104,9 +104,11 @@ struct Rail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+            // The pink dot is the wordmark's period: bottom on the text baseline, just after the "y".
+            HStack(alignment: .lastTextBaseline, spacing: 1.5) {
                 Text("Dorothy").font(.display(30)).tracking(-0.9)
-                Circle().fill(B.pink).overlay(Circle().strokeBorder(B.ink, lineWidth: 2)).frame(width: 12, height: 12)
+                Circle().fill(B.pink).overlay(Circle().strokeBorder(B.ink, lineWidth: 2)).frame(width: 9.5, height: 9.5)
+                    .alignmentGuide(.lastTextBaseline) { $0[.bottom] }
             }
             .padding(.bottom, 10)
             Caps("Lists")
@@ -459,6 +461,7 @@ struct ItemRow: View {
     @FocusState private var focused: Bool
     private var open: Bool { expanded == item.id }
     private var lift: Bool { hover && !item.done && !reduceMotion }
+    private var revealed: Bool { m.revealedItem == item.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 10 : 14) {
@@ -490,13 +493,18 @@ struct ItemRow: View {
             if open { editor.transition(.opacity) }
         }
         .padding(.vertical, compact ? 8 : 12).padding(.horizontal, compact ? 10 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(DeleteReveal(shown: revealed, compact: compact) { m.revealedItem = nil; m.deleteItem(listID, item.id) })
         .brutalBox(m.flash.contains(item.id) ? B.yellow : item.done ? B.doneBG : .white,
                    border: compact ? 2 : 3, shadow: item.done ? 0 : (compact ? 3 : 5) + (lift ? 1 : 0))
         .offset(x: lift ? -1 : 0, y: lift ? -1 : 0)
         .onHover { hover = $0 }
         .animation(motion(.spring(response: 0.3, dampingFraction: 0.7)), value: lift)
         .contentShape(Rectangle())
+        .overlay(RightClickCatcher { m.toggleReveal(item.id) })
+        .accessibilityAction(named: "Delete") { m.deleteItem(listID, item.id) }
         .onTapGesture {
+            if m.revealedItem != nil { withAnimation(motion(springy)) { m.revealedItem = nil }; return }  // click just dismisses a reveal
             guard !open else { return }
             draft = item.title
             base = item.title
@@ -545,6 +553,38 @@ struct ItemRow: View {
 }
 
 /// Deadlines are UTC-midnight day stamps (DorothyCore.dayCalendar).
+/// Right-click reveal: content shifts left, a pink Delete action sits flush right inside the row's border.
+private struct DeleteReveal: ViewModifier {
+    let shown: Bool
+    let compact: Bool
+    let delete: () -> Void
+    func body(content: Content) -> some View {
+        HStack(spacing: 0) {
+            content
+            if shown {
+                HStack(spacing: 0) {
+                    B.ink.frame(width: compact ? 2 : 3)
+                    Button(action: delete) {
+                        HStack(spacing: 8) {
+                            Glyph(.trash).stroke(B.ink, style: StrokeStyle(lineWidth: 1.8, lineJoin: .round)).frame(width: 14, height: 14)
+                            if !compact { Text("Delete").font(.body(15, .bold)) }
+                        }
+                        .frame(width: compact ? 54 : 101)
+                        .frame(maxHeight: .infinity)
+                        .background(B.pink)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Delete")
+                }
+                .transition(.move(edge: .trailing))
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .clipped()
+    }
+}
+
 private func deadlinePresets() -> [(String, Date?)] {
     let t = today()
     return [("Today", t),
