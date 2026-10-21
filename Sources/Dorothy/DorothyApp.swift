@@ -1,5 +1,6 @@
 import SwiftUI
 import DorothyCore
+import Sparkle
 
 @main
 struct DorothyApp: App {
@@ -13,17 +14,24 @@ struct DorothyApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 960 + 2 * windowMargin, height: 640 + 2 * windowMargin)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { delegate.updater.checkForUpdates(nil) }
+            }
+        }
     }
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    /// Sparkle; feed URL + public key live in Info.plist (scripts/bundle.sh).
+    let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     private var menuBar: MenuBar?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.applyDockPolicy(reactivate: false)
-        menuBar = MenuBar(model: model)
+        menuBar = MenuBar(model: model, updater: updater)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
