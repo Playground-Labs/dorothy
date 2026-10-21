@@ -63,6 +63,7 @@ If Ollama isn't running, Dorothy still saves what you type, word for word, and a
 - **Reduce motion** swaps the bounces and wiggles for simple fades.
 - **Show in Dock** off turns Dorothy into a menu-bar-only app.
 - **Microphone** picks which mic Dorothy listens to.
+- **Connect an AI agent** shows the exact command and JSON config to hook Dorothy up to Claude Code or any MCP client, with copy buttons.
 - **Data** exports and imports your lists as Markdown.
 - **Danger zone** clears all tasks or all lists. You type a random phrase first, so you can't wipe anything by accident.
 
@@ -73,6 +74,8 @@ Add Dorothy to Claude Code with one command:
 ```sh
 claude mcp add dorothy -- "$PWD/build/Dorothy.app/Contents/MacOS/dorothy-mcp"
 ```
+
+Settings (**⌘,**) shows the same command with this copy's real path, plus a JSON config for other MCP clients.
 
 Then ask Claude things like "add 'book flights' to my Trip to Lisbon list" or "what's due this week?"
 
