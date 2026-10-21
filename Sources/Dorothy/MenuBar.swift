@@ -1,10 +1,12 @@
 import SwiftUI
 import Combine
+import Sparkle
 
 /// Status-bar icon. Left-click → compact Dorothy in a drop-down panel; right/ctrl-click → small custom menu panel.
 @MainActor
 final class MenuBar: NSObject {
     private let model: AppModel
+    private let updater: SPUStandardUpdaterController
     private let item = NSStatusBar.system.statusItem(withLength: 26)
     private var panel: NSPanel?
     private var showingMenu = false
@@ -12,8 +14,9 @@ final class MenuBar: NSObject {
     private var closedAt = Date.distantPast
     private var micSub: AnyCancellable?
 
-    init(model: AppModel) {
+    init(model: AppModel, updater: SPUStandardUpdaterController) {
         self.model = model
+        self.updater = updater
         super.init()
         if let b = item.button {
             b.target = self
@@ -63,10 +66,11 @@ final class MenuBar: NSObject {
 
     private func open(menu: Bool) {
         guard let button = item.button, let bw = button.window else { return }
-        let size = menu ? CGSize(width: 204, height: 122) : CGSize(width: 346, height: 566)
+        let size = menu ? CGSize(width: 204, height: 160) : CGSize(width: 346, height: 566)
         let root = menu
             ? AnyView(MenuPanelView(open: { [weak self] in self?.model.showMainWindow() },
                                     settings: { [weak self] in self?.model.showMainWindow(settings: true) },
+                                    update: { [weak self] in self?.close(); self?.updater.checkForUpdates(nil) },
                                     quit: { NSApp.terminate(nil) }))
             : AnyView(DropDownView(onExpand: { [weak self] in self?.model.showMainWindow(full: true) }).environmentObject(model))
 
@@ -150,6 +154,7 @@ struct DropDownView: View {
 struct MenuPanelView: View {
     let open: () -> Void
     let settings: () -> Void
+    let update: () -> Void
     let quit: () -> Void
 
     var body: some View {
@@ -158,12 +163,14 @@ struct MenuPanelView: View {
             B.ink.frame(height: 2)
             MenuRow(title: "Settings…", action: settings)
             B.ink.frame(height: 2)
+            MenuRow(title: "Check for Updates…", action: update)
+            B.ink.frame(height: 2)
             MenuRow(title: "Quit Dorothy", action: quit)
         }
         .frame(width: 194)
         .brutalBox(shadow: 4)
         .foregroundColor(B.ink)
-        .frame(width: 204, height: 122, alignment: .topLeading)
+        .frame(width: 204, height: 160, alignment: .topLeading)
     }
 
     private struct MenuRow: View {
