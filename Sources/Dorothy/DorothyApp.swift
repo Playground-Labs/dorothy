@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.applyDockPolicy(reactivate: false)
+        model.applyAppearance()
         menuBar = MenuBar(model: model)
     }
 
@@ -48,6 +49,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var data: DorothyData
     @Published var selectedListID: UUID? { didSet { UserDefaults.standard.set(selectedListID?.uuidString, forKey: "selectedList") } }
     @Published var compact = UserDefaults.standard.bool(forKey: "compact") { didSet { UserDefaults.standard.set(compact, forKey: "compact") } }
+    /// App-wide theme: every window (main, compact, menu-bar panel, HUD) re-resolves the B colors live.
+    @Published var appearance = Appearance(stored: UserDefaults.standard.string(forKey: Appearance.defaultsKey)) {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Appearance.defaultsKey); applyAppearance() }
+    }
     @Published var gemmaOnline = true
     @Published var mic = MicState.idle
     @Published var flash: Set<UUID> = []
@@ -318,6 +323,11 @@ final class AppModel: ObservableObject {
     /// Like the modern green button: full screen; option-click = classic zoom.
     func zoomMainWindow() {
         NSEvent.modifierFlags.contains(.option) ? window?.zoom(nil) : window?.toggleFullScreen(nil)
+    }
+
+    /// nil follows macOS; otherwise force aqua / darkAqua on every window.
+    func applyAppearance() {
+        NSApp.appearance = appearance == .system ? nil : NSAppearance(named: appearance == .dark ? .darkAqua : .aqua)
     }
 
     /// "Show in Dock" (UserDefaults "showInDock", default on): .regular vs .accessory (menu bar only).
