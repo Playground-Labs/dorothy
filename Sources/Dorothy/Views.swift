@@ -15,10 +15,10 @@ struct RootView: View {
             }
         }
         .frame(minWidth: m.compact ? 340 : 820, minHeight: 532)  // + 28pt hidden-titlebar safe area = 560 square
-        .background(B.paper, ignoresSafeAreaEdges: [])
-        .overlay(Rectangle().strokeBorder(B.ink, lineWidth: 3))
-        .overlay(alignment: .topLeading) { WindowControls().padding(.leading, 17).padding(.top, 15) }
-        .background(B.ink.opacity(m.fullScreen ? 0 : 1).offset(x: 6, y: 6))  // our hard shadow; the window has none
+        .background(B.ground, ignoresSafeAreaEdges: [])
+        .overlay(Rectangle().strokeBorder(B.shadow, lineWidth: 3))
+        .overlay(alignment: .topLeading) { WindowControls().padding(.leading, 17).padding(.top, 15).environment(\.colorScheme, .light) }  // sits on the yellow rail
+        .background(B.shadow.opacity(m.fullScreen ? 0 : 1).offset(x: 6, y: 6))  // our hard shadow; the window has none
         .padding(m.fullScreen ? 0 : windowMargin)
         .ignoresSafeArea()
         .foregroundColor(B.ink)
@@ -78,7 +78,7 @@ struct FullView: View {
     var body: some View {
         HStack(spacing: 0) {
             Rail(ns: ns).frame(width: 232)
-            Rectangle().fill(B.ink).frame(width: 3)
+            Rectangle().fill(B.shadow).frame(width: 3)
             if m.showSettings {
                 SettingsView(compact: false).transition(.opacity)
             } else if let list = m.currentList {
@@ -132,7 +132,7 @@ struct Rail: View {
                 }
                 .padding(.vertical, 5).padding(.horizontal, 8)
             }
-            .buttonStyle(BrutalButtonStyle(fill: m.showSettings ? B.ink : B.paper, shadow: 3, border: 2))
+            .buttonStyle(BrutalButtonStyle(fill: m.showSettings ? B.inkFill : B.paper, shadow: 3, border: 2))
             HStack(spacing: 8) {
                 Circle().fill(m.gemmaOnline ? B.mint : B.pink).overlay(Circle().strokeBorder(B.onAccent, lineWidth: 2)).frame(width: 10, height: 10)
                 Caps(m.gemmaOnline ? "Gemma 4 · E4B · Local" : "Offline", track: 0.08, color: B.onAccent)
@@ -142,6 +142,7 @@ struct Rail: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .foregroundColor(B.onAccent)  // the rail stays yellow, so its text stays dark ink
         .background(B.yellow, ignoresSafeAreaEdges: [])  // don't bleed into the transparent window margin
+        .environment(\.colorScheme, .light)  // the yellow rail looks the same in both themes
     }
 
     @ViewBuilder private var newList: some View {
@@ -434,7 +435,7 @@ struct GroupHeader: View {
     var body: some View {
         let (fill, fg, tilt): (Color, Color, Double) = switch title {
         case "High", "Danger zone": (B.pink, B.onAccent, -2)
-        case "Data": (B.ink, B.onInk, 1.5)
+        case "Data": (B.inkFill, B.onInk, 1.5)
         case "Medium": (B.orange, B.onAccent, 1.5)
         case "Low": (B.cobalt, .white, -1)
         default: (B.paper, B.ink, index.isMultiple(of: 2) ? -1.5 : 1)
@@ -535,7 +536,7 @@ struct ItemRow: View {
             Caps("Deadline", size: 10)
             HStack(spacing: 6) {
                 ForEach(deadlinePresets(), id: \.0) { name, date in
-                    ChipButton(text: name, on: item.deadline == date, fill: B.ink, fg: B.onInk) { m.updateItem(listID, item.id) { $0.deadline = date } }
+                    ChipButton(text: name, on: item.deadline == date, fill: B.inkFill, fg: B.onInk) { m.updateItem(listID, item.id) { $0.deadline = date } }
                 }
                 Spacer(minLength: 0)
                 Button { confirmDelete ? m.deleteItem(listID, item.id) : (confirmDelete = true) } label: {
@@ -831,7 +832,7 @@ struct SettingsView: View {
                         HStack(spacing: 6) {
                             Caps("Shortcut")
                             Text("⌘ ,").font(.system(size: 13, weight: .bold)).foregroundColor(B.onInk)  // system font: Space Mono lacks ⌘
-                                .padding(.horizontal, 7).frame(minHeight: 22).background(B.ink)
+                                .padding(.horizontal, 7).frame(minHeight: 22).background(B.inkFill)
                         }
                         .accessibilityElement(children: .ignore).accessibilityLabel("Shortcut: Command comma")
                         Text("Settings").font(.display(compact ? 30 : 44)).tracking(compact ? -0.9 : -1.32)
@@ -1038,7 +1039,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12).padding(.horizontal, compact ? 10 : 14)
         }
-        .buttonStyle(BrutalButtonStyle(fill: on ? B.ink : B.paper, shadow: on ? 0 : 5))
+        .buttonStyle(BrutalButtonStyle(fill: on ? B.inkFill : B.paper, shadow: on ? 0 : 5))
     }
 
     private func confirmCard(_ d: Danger) -> some View {

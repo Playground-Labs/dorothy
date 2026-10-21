@@ -47,7 +47,18 @@ final class ThemeTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(contrast(p.line, p.paper), 4.5)
             XCTAssertGreaterThanOrEqual(contrast(p.muted, p.paper), 4.5)
             XCTAssertGreaterThanOrEqual(contrast(p.onAccent, p.yellow), 4.5)
+            XCTAssertGreaterThanOrEqual(contrast(p.line, p.ground), 4.5)
         }
+        // Selected labels (onInk): yellow on black in light, dark ink on yellow in dark.
+        XCTAssertGreaterThanOrEqual(contrast(Palette.light.yellow, Palette.light.inkFill), 4.5)
+        XCTAssertGreaterThanOrEqual(contrast(Palette.dark.onAccent, Palette.dark.inkFill), 4.5)
+    }
+
+    func testDarkShadowsStayDarkerThanSurfaces() {
+        let d = Palette.dark
+        XCTAssertNotEqual(d.shadow, d.line)
+        XCTAssertLessThan(luminance(d.shadow), luminance(d.ground))
+        XCTAssertLessThan(luminance(d.ground), luminance(d.paper))
     }
 
     private func luminance(_ hex: String) -> Double {

@@ -4,8 +4,11 @@ import DorothyCore
 
 /// Theme colors. Each resolves against the drawing appearance, so NSApp.appearance flips them live.
 enum B {
-    static let ink = dyn(\.line)  // borders, hard shadows, primary text
+    static let ink = dyn(\.line)  // borders, primary text
+    static let shadow = dyn(\.shadow)  // hard shadows, window frame
+    static let ground = dyn(\.ground)
     static let paper = dyn(\.paper)
+    static let inkFill = dyn(\.inkFill)  // selected fills; pair with onInk
     static let onAccent = dyn(\.onAccent)  // text and glyphs on yellow / pink / mint / orange fills
     static let muted = dyn(\.muted)
     static let placeholder = dyn(\.placeholder)
@@ -18,7 +21,7 @@ enum B {
     static let mint = dyn(\.mint)
     static let doneBG = dyn(\.doneBG)
     static let grey = dyn { $0 ? Palette.dark.muted : "#555555" }
-    /// Labels on a B.ink fill: yellow on black in light mode, dark ink on the light fill in dark mode.
+    /// Labels on a B.inkFill: yellow on black in light mode, dark ink on yellow in dark mode.
     static let onInk = dyn { $0 ? Palette.dark.onAccent : Palette.light.yellow }
 
     private static func dyn(_ kp: KeyPath<Palette, String>) -> Color { dyn { Palette.forDark($0)[keyPath: kp] } }
@@ -95,7 +98,7 @@ extension View {
         padding(border)
             .background(fill)
             .overlay(Rectangle().strokeBorder(B.ink, lineWidth: border))
-            .background(B.ink.opacity(shadow > 0 ? 1 : 0).offset(x: shadow, y: shadow))
+            .background(B.shadow.opacity(shadow > 0 ? 1 : 0).offset(x: shadow, y: shadow))
     }
     func dashedBorder(_ color: Color = B.ink) -> some View {
         overlay(Rectangle().strokeBorder(color, style: StrokeStyle(lineWidth: 3, dash: [7, 4])))
@@ -125,7 +128,7 @@ struct BrutalButtonStyle: ButtonStyle {
                 .padding(style.border)
                 .background(shape.fill(style.fill))
                 .overlay(shape.strokeBorder(B.ink, lineWidth: style.border))
-                .background(shape.fill(B.ink).offset(x: s, y: s))
+                .background(shape.fill(B.shadow).offset(x: s, y: s))
                 .contentShape(shape)
                 .offset(x: shift, y: shift)
                 .onHover { hover = $0 }
@@ -180,7 +183,7 @@ struct Checkbox: View {
 struct ChipButton: View {
     let text: String
     let on: Bool
-    var fill: Color = B.ink
+    var fill: Color = B.inkFill
     var fg: Color = B.onAccent
     let action: () -> Void
     var body: some View {
@@ -204,7 +207,7 @@ struct Segmented<T: Hashable, L: View>: View {
             ForEach(options, id: \.self) { o in
                 Button { withAnimation(motion(springy)) { onSelect(o) } } label: {
                     label(o, o == selection)
-                        .background { if o == selection { B.ink.matchedGeometryEffect(id: "sel", in: ns) } }
+                        .background { if o == selection { B.inkFill.matchedGeometryEffect(id: "sel", in: ns) } }
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
