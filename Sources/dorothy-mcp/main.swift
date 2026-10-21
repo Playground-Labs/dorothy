@@ -39,14 +39,16 @@ let tools = [
              "title": prop("string", "Item title"),
              "priority": priorityArg,
              "deadline": prop("string", "Due date, YYYY-MM-DD"),
+             "notes": prop("string", "Notes, at most 250 characters"),
          ], required: ["title"])),
-    Tool(name: "update_item", description: "Update an item's title, done state, priority, or deadline.",
+    Tool(name: "update_item", description: "Update an item's title, done state, priority, deadline, or notes.",
          inputSchema: schema([
              "id": prop("string", "Item id"),
              "title": prop("string", "New title"),
              "done": prop("boolean", "Done state"),
              "priority": priorityArg,
              "deadline": prop("string", "Due date YYYY-MM-DD, or \"\" to clear"),
+             "notes": prop("string", "Notes, at most 250 characters, or \"\" to clear"),
          ], required: ["id"])),
     Tool(name: "delete_item", description: "Delete an item.",
          inputSchema: schema(["id": prop("string", "Item id")], required: ["id"])),
@@ -59,6 +61,7 @@ func json(_ item: Item) -> Value {
         "id": .string(item.id.uuidString), "title": .string(item.title), "done": .bool(item.done),
         "priority": .string(item.priority.rawValue),
         "deadline": item.deadline.map { .string(formatDay($0)) } ?? .null,
+        "notes": item.notes.map { .string($0) } ?? .null,
     ]
 }
 
@@ -112,6 +115,14 @@ func priority(_ s: String?) throws -> Priority? {
         throw ToolError("Bad priority \"\(s)\"; expected high, medium, low, or none.")
     }
     return p
+}
+
+/// Rejects over-long notes rather than silently cutting them.
+func notes(_ s: String?) throws -> String? {
+    if let s, s.trimmingCharacters(in: .whitespacesAndNewlines).count > Item.notesLimit {
+        throw ToolError("Notes must be at most \(Item.notesLimit) characters.")
+    }
+    return Item.normalizedNotes(s)
 }
 
 func day(_ s: String) throws -> Date {
@@ -168,7 +179,8 @@ func call(_ name: String, _ args: [String: Value]) throws -> Value {
         guard let title = clean(try str("title")), !title.isEmpty else {
             throw ToolError("Missing required argument \"title\".")
         }
-        let item = Item(title: title, priority: try priority(str("priority")) ?? .none, deadline: try str("deadline").map(day))
+        let item = Item(title: title, priority: try priority(str("priority")) ?? .none, deadline: try str("deadline").map(day),
+                        notes: try notes(str("notes")))
         try store.mutate { data in
             data.lists[try listIndex(try str("list"), in: data)].items.append(item)
         }
@@ -180,12 +192,15 @@ func call(_ name: String, _ args: [String: Value]) throws -> Value {
         let done = try bool(args, "done")
         let newPriority = try priority(str("priority"))
         let deadline = try str("deadline")
+        let notesArg = try str("notes")
+        let newNotes = try notes(notesArg)
         var updated: Item!
         try store.mutate { data in
             let (l, i) = try itemIndex(try str("id"), in: data)
             if let title { data.lists[l].items[i].title = title }
             if let done { data.lists[l].items[i].done = done }
             if let newPriority { data.lists[l].items[i].priority = newPriority }
+            if notesArg != nil { data.lists[l].items[i].notes = newNotes }
             if let d = deadline { data.lists[l].items[i].deadline = d.isEmpty ? nil : try day(d) }
             updated = data.lists[l].items[i]
         }
