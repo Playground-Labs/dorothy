@@ -138,7 +138,7 @@ struct DropDownView: View {
     var body: some View {
         CompactView(ns: ns, menuBar: true, onExpand: onExpand)
             .frame(width: 340, height: 560)
-            .background(Color.white)
+            .background(B.paper)
             .overlay(Rectangle().strokeBorder(B.ink, lineWidth: 3))
             .background(B.ink.offset(x: 6, y: 6))
             .foregroundColor(B.ink)
@@ -183,7 +183,8 @@ struct MenuPanelView: View {
                 Text(title).font(.body(14, primary ? .bold : .semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 9).padding(.horizontal, 12)
-                    .background(primary || hover ? B.yellow : .white)
+                    .foregroundColor(primary || hover ? B.onAccent : B.ink)
+                    .background(primary || hover ? B.yellow : B.paper)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

@@ -1,21 +1,43 @@
 import SwiftUI
 import CoreText
+import DorothyCore
 
+/// Theme colors. Each resolves against the drawing appearance, so NSApp.appearance flips them live.
 enum B {
-    static let ink = Color(hex: "#111111")
-    static let yellow = Color(hex: "#FFD60A")
-    static let pink = Color(hex: "#FF4FA3")
-    static let orange = Color(hex: "#FF7A1A")
-    static let cobalt = Color(hex: "#2E5BFF")
-    static let mint = Color(hex: "#22D39A")
-    static let doneBG = Color(hex: "#F2F2F2")
-    static let grey = Color(hex: "#555555")
+    static let ink = dyn(\.line)  // borders, hard shadows, primary text
+    static let paper = dyn(\.paper)
+    static let onAccent = dyn(\.onAccent)  // text and glyphs on yellow / pink / mint / orange fills
+    static let muted = dyn(\.muted)
+    static let placeholder = dyn(\.placeholder)
+    static let disabledBG = dyn(\.disabledBG)
+    static let dangerBG = dyn(\.dangerBG)
+    static let yellow = dyn(\.yellow)
+    static let pink = dyn(\.pink)
+    static let orange = dyn(\.orange)
+    static let cobalt = dyn(\.cobalt)
+    static let mint = dyn(\.mint)
+    static let doneBG = dyn(\.doneBG)
+    static let grey = dyn { $0 ? Palette.dark.muted : "#555555" }
+    /// Labels on a B.ink fill: yellow on black in light mode, dark ink on the light fill in dark mode.
+    static let onInk = dyn { $0 ? Palette.dark.onAccent : Palette.light.yellow }
+
+    private static func dyn(_ kp: KeyPath<Palette, String>) -> Color { dyn { Palette.forDark($0)[keyPath: kp] } }
+    private static func dyn(_ hex: @escaping @Sendable (_ dark: Bool) -> String) -> Color {
+        Color(nsColor: NSColor(name: nil) { ap in NSColor(hex: hex(ap.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)) })
+    }
 }
 
 extension Color {
     init(hex: String) {
         let v = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0
         self.init(red: Double((v >> 16) & 255) / 255, green: Double((v >> 8) & 255) / 255, blue: Double(v & 255) / 255)
+    }
+}
+
+extension NSColor {
+    convenience init(hex: String) {
+        let v = UInt32(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0
+        self.init(srgbRed: CGFloat((v >> 16) & 255) / 255, green: CGFloat((v >> 8) & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: 1)
     }
 }
 
@@ -69,20 +91,20 @@ extension AnyTransition {
 // MARK: Boxes & buttons
 
 extension View {
-    func brutalBox(_ fill: Color = .white, border: CGFloat = 3, shadow: CGFloat = 5) -> some View {
+    func brutalBox(_ fill: Color = B.paper, border: CGFloat = 3, shadow: CGFloat = 5) -> some View {
         padding(border)
             .background(fill)
             .overlay(Rectangle().strokeBorder(B.ink, lineWidth: border))
             .background(B.ink.opacity(shadow > 0 ? 1 : 0).offset(x: shadow, y: shadow))
     }
-    func dashedBorder() -> some View {
-        overlay(Rectangle().strokeBorder(B.ink, style: StrokeStyle(lineWidth: 3, dash: [7, 4])))
+    func dashedBorder(_ color: Color = B.ink) -> some View {
+        overlay(Rectangle().strokeBorder(color, style: StrokeStyle(lineWidth: 3, dash: [7, 4])))
     }
 }
 
 /// Hover lifts (shadow +2, offset -1); press squashes into the page (offset +shadow, shadow 0).
 struct BrutalButtonStyle: ButtonStyle {
-    var fill: Color = .white
+    var fill: Color = B.paper
     var shadow: CGFloat = 5
     var border: CGFloat = 3
     var radius: CGFloat = 0
@@ -144,9 +166,9 @@ struct Checkbox: View {
     var border: CGFloat = 3
     var body: some View {
         ZStack {
-            Rectangle().fill(on ? B.mint : .white)
+            Rectangle().fill(on ? B.mint : B.paper)
             Glyph(.check).trim(from: 0, to: on ? 1 : 0)
-                .stroke(B.ink, style: StrokeStyle(lineWidth: border, lineCap: .square))
+                .stroke(B.onAccent, style: StrokeStyle(lineWidth: border, lineCap: .square))
                 .frame(width: size * 0.64, height: size * 0.64)
         }
         .frame(width: size, height: size)
@@ -159,14 +181,14 @@ struct ChipButton: View {
     let text: String
     let on: Bool
     var fill: Color = B.ink
-    var fg: Color = B.ink
+    var fg: Color = B.onAccent
     let action: () -> Void
     var body: some View {
         Button(action: action) {
             Caps(text, size: 10, bold: true, track: 0.06, color: on ? fg : B.ink)
                 .padding(.vertical, 4).padding(.horizontal, 7)
         }
-        .buttonStyle(BrutalButtonStyle(fill: on ? fill : .white, shadow: on ? 0 : 2, border: 2))
+        .buttonStyle(BrutalButtonStyle(fill: on ? fill : B.paper, shadow: on ? 0 : 2, border: 2))
     }
 }
 
@@ -197,10 +219,10 @@ struct BrutalSwitch: View {
     @Binding var on: Bool
     var body: some View {
         Button { withAnimation(motion(springy)) { on.toggle() } } label: {
-            Rectangle().fill(B.ink).frame(width: 22, height: 20)
+            Rectangle().fill(on ? B.onAccent : B.ink).frame(width: 22, height: 20)
                 .frame(width: 52, alignment: on ? .trailing : .leading)
                 .padding(3)
-                .brutalBox(on ? B.yellow : .white, shadow: 0)
+                .brutalBox(on ? B.yellow : B.paper, shadow: 0)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -222,7 +244,7 @@ struct MicGlyph: View {
     var body: some View {
         ZStack {
             Glyph(.micStand).stroke(B.ink, lineWidth: line)
-            Glyph(.micBody).fill(.white)
+            Glyph(.micBody).fill(B.paper)
             Glyph(.micBody).stroke(B.ink, lineWidth: line)
         }
     }
