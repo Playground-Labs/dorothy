@@ -22,6 +22,41 @@ public struct ParsedItem: Codable, Equatable {
     }
 }
 
+public enum GemmaSetup { case noOllama, notRunning, noModel, ready }
+
+/// One NDJSON line from /api/pull.
+public struct PullProgress: Decodable, Equatable {
+    public var status: String?
+    public var digest: String?
+    public var completed: Double?
+    public var total: Double?
+    public var error: String?
+}
+
+/// Whole-pull progress: Ollama reports each layer separately, so sum them; the fraction never goes backwards.
+public struct PullTally: Sendable {
+    public private(set) var status = ""
+    public private(set) var fraction = 0.0
+    private var totals: [String: Double] = [:], done: [String: Double] = [:]
+    public var completedBytes: Double { done.values.reduce(0, +) }
+    public var totalBytes: Double { totals.values.reduce(0, +) }
+
+    public init() {}
+
+    public mutating func add(_ p: PullProgress) {
+        status = p.status ?? status
+        guard let d = p.digest, let t = p.total, t > 0 else { return }
+        totals[d] = t
+        done[d] = max(done[d] ?? 0, p.completed ?? 0)
+        fraction = max(fraction, completedBytes / totalBytes)
+    }
+}
+
+public struct SetupError: LocalizedError {
+    public let errorDescription: String?
+    public init(_ message: String) { errorDescription = message }
+}
+
 public enum Gemma {
     public static var model: String { ProcessInfo.processInfo.environment["DOROTHY_MODEL"] ?? "gemma4:e4b" }
     public static var host: URL { hostURL(ProcessInfo.processInfo.environment["OLLAMA_HOST"]) }
@@ -35,12 +70,46 @@ public enum Gemma {
         return c.url ?? URL(string: "http://127.0.0.1:11434")!
     }
 
-    public static func isReachable() async -> Bool {
+    public static let ollamaApps = ["/Applications/Ollama.app", NSHomeDirectory() + "/Applications/Ollama.app"]
+    public static let ollamaCLIs = ["/opt/homebrew/bin/ollama", "/usr/local/bin/ollama"]
+
+    /// Server answers → model pulled? Otherwise: is Ollama installed at all?
+    public static func setupState() async -> GemmaSetup {
         var req = URLRequest(url: host.appendingPathComponent("api/tags"))
         req.timeoutInterval = 1.5
-        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
-        return (resp as? HTTPURLResponse)?.statusCode == 200
+        if let (data, resp) = try? await URLSession.shared.data(for: req), (resp as? HTTPURLResponse)?.statusCode == 200 {
+            return hasModel(tags: data, model) ? .ready : .noModel
+        }
+        return (ollamaApps + ollamaCLIs).contains { FileManager.default.fileExists(atPath: $0) } ? .notRunning : .noOllama
     }
+
+    /// /api/tags lists "name:tag"; a bare name means ":latest".
+    static func hasModel(tags: Data, _ model: String) -> Bool {
+        struct Tags: Decodable { struct M: Decodable { var name: String?; var model: String? }; var models: [M] }
+        func norm(_ s: String) -> String { s.split(separator: "/").last?.contains(":") == true ? s : s + ":latest" }
+        guard let tags = try? JSONDecoder().decode(Tags.self, from: tags) else { return false }
+        return tags.models.contains { m in [m.name, m.model].compactMap { $0 }.contains { norm($0) == norm(model) } }
+    }
+
+    /// Streams POST /api/pull; throws Ollama's error text, or if the stream ends without "success". Cancel the task to stop.
+    public static func pull(_ onProgress: @Sendable @MainActor (PullTally) -> Void) async throws {
+        var req = URLRequest(url: host.appendingPathComponent("api/pull"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["model": model, "stream": true])
+        let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+        var tally = PullTally()
+        for try await line in bytes.lines {
+            guard let p = pullLine(line) else { continue }
+            if let e = p.error { throw SetupError(e) }
+            tally.add(p)
+            await onProgress(tally)
+        }
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+        guard tally.status == "success" else { throw SetupError("The download stopped early. Try again to resume it.") }
+    }
+
+    static func pullLine(_ line: String) -> PullProgress? { try? JSONDecoder().decode(PullProgress.self, from: Data(line.utf8)) }
 
     public static func parse(text: String, lists: [String], now: Date = Date()) async throws -> [ParsedItem] {
         let content = try await chat(system: prompt(lists: lists, now: now, audio: false),
