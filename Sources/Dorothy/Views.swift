@@ -14,6 +14,7 @@ struct RootView: View {
                 FullView(ns: ns).transition(.opacity)
             }
         }
+        .disabled(m.showSetup)  // the setup dialog is modal: no typing into QuickAdd underneath
         .frame(minWidth: m.compact ? 340 : 820, minHeight: 532)  // + 28pt hidden-titlebar safe area = 560 square
         .background(Color.white, ignoresSafeAreaEdges: [])
         .overlay(Rectangle().strokeBorder(B.ink, lineWidth: 3))
@@ -38,6 +39,16 @@ struct RootView: View {
                 }
             }
             .opacity(0)
+        }
+        .overlay {
+            if m.showSetup {
+                ZStack {
+                    B.ink.opacity(0.35).onTapGesture {}  // modal: swallow clicks
+                    SetupDialog(run: m.setupRun).padding(16)
+                }
+                .padding(m.fullScreen ? 0 : windowMargin)
+                .transition(.opacity)
+            }
         }
         .onAppear { m.openMain = { openWindow(id: "main") } }
     }
@@ -309,16 +320,22 @@ struct Banners: View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
             if let e = m.dataError { banner(e.title, e.detail) }
             if !m.gemmaOnline {
-                banner("Gemma offline", compact ? "Saved as typed." : "Items are saved as typed. Start Ollama to parse dates & priorities.")
+                banner("Gemma offline", compact ? "Saved as typed." : "Items are saved as typed until Gemma is set up.", setup: true)
             }
         }
     }
 
-    private func banner(_ title: String, _ detail: String) -> some View {
+    private func banner(_ title: String, _ detail: String, setup: Bool = false) -> some View {
         HStack(spacing: 12) {
             Caps(title, size: compact ? 10 : 11, bold: true, track: 0.1).fixedSize()
             Text(detail).font(.body(compact ? 12 : 14)).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 0)
+            if setup {
+                Button { m.openSetup() } label: {
+                    Caps("Set up", size: 10, bold: true, track: 0.06).padding(.vertical, 3).padding(.horizontal, 7)
+                }
+                .buttonStyle(BrutalButtonStyle(shadow: 2, border: 2))
+            }
         }
         .padding(.vertical, compact ? 6 : 10).padding(.horizontal, compact ? 10 : 14)
         .brutalBox(B.pink, border: compact ? 2 : 3, shadow: 0)

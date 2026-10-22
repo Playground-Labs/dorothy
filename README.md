@@ -34,19 +34,14 @@ Say "pay rent friday, urgent, and call mom" and Dorothy adds two tasks: rent goe
 
 You need a Mac on macOS 14 or later.
 
-1. Install Ollama and Dorothy's model (about 9.5 GB):
-   ```sh
-   brew install ollama
-   brew services start ollama
-   ollama pull gemma4:e4b
-   ```
-2. Build and open Dorothy:
+1. Build and open Dorothy:
    ```sh
    scripts/bundle.sh && open build/Dorothy.app
    ```
+2. On first launch Dorothy walks you through installing Ollama and its Gemma model (about 6.6 GB). Prefer the terminal? `brew install ollama && brew services start ollama && ollama pull gemma4:e4b`
 3. Hold **⌃⌥D** and say your first task. Your Mac will ask for microphone access the first time.
 
-If Ollama isn't running, Dorothy still saves what you type, word for word, and a pink banner lets you know Gemma is offline.
+If Gemma isn't ready, Dorothy still saves what you type, word for word, and a pink banner with a **Set up** button lets you know Gemma is offline.
 
 ## Handy shortcuts
 

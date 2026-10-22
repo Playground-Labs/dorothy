@@ -96,8 +96,8 @@ final class GemmaTests: XCTestCase {
     /// DOROTHY_LIVE=1 swift test --filter GemmaTests/testLive
     func testLive() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["DOROTHY_LIVE"] == "1")
-        let reachable = await Gemma.isReachable()
-        XCTAssertTrue(reachable)
+        let state = await Gemma.setupState()
+        XCTAssertEqual(state, .ready)
         let items = try await Gemma.parse(text: "pay rent friday urgent and call mom", lists: ["Errands", "Work"])
         print("LIVE text →", items)
         XCTAssertGreaterThanOrEqual(items.count, 2)

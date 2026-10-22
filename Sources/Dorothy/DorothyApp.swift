@@ -56,7 +56,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var data: DorothyData
     @Published var selectedListID: UUID? { didSet { UserDefaults.standard.set(selectedListID?.uuidString, forKey: "selectedList") } }
     @Published var compact = UserDefaults.standard.bool(forKey: "compact") { didSet { UserDefaults.standard.set(compact, forKey: "compact") } }
-    @Published var gemmaOnline = true
+    /// Starts .ready so nothing flashes before the first check.
+    @Published private(set) var setup = GemmaSetup.ready
+    @Published var showSetup = false
+    let setupRun = SetupRun()
+    var gemmaOnline: Bool { setup == .ready }
     @Published var mic = MicState.idle
     @Published var flash: Set<UUID> = []
     @Published var showSettings = false
@@ -86,9 +90,16 @@ final class AppModel: ObservableObject {
         hotKey = HotKey(onPress: { [weak self] in MainActor.assumeIsolated { self?.startRecording(hud: true) } },
                         onRelease: { [weak self] in MainActor.assumeIsolated { self?.finishRecording(hud: true) } })
         Task {
+            await refreshSetup()
+            // At login Ollama may need a few seconds to accept connections; don't cry wolf.
+            for _ in 0..<5 where setup == .notRunning {
+                try? await Task.sleep(for: .seconds(1))
+                await refreshSetup()
+            }
+            if setup != .ready { openSetup() }  // once per launch
             while true {
-                setOnline(await Gemma.isReachable())
                 try? await Task.sleep(for: .seconds(10))
+                await refreshSetup()
             }
         }
     }
@@ -227,8 +238,15 @@ final class AppModel: ObservableObject {
         selectedListID = data.lists.first?.id
     }
 
-    private func setOnline(_ online: Bool) {
-        if online != gemmaOnline { withAnimation(motion(springy)) { gemmaOnline = online } }
+    func refreshSetup() async {
+        let s = await Gemma.setupState()
+        if s != setup { withAnimation(motion(springy)) { setup = s } }
+    }
+
+    /// Setup dialog over the main window; works from the menu bar too.
+    func openSetup() {
+        showMainWindow()
+        withAnimation(motion(springy)) { showSetup = true }
     }
 
     // MARK: Input
@@ -248,16 +266,10 @@ final class AppModel: ObservableObject {
                 guard mutate({ added = Gemma.apply(parsed, sourceText: text, defaultListID: list.id, to: &$0).count }) else { return false }
                 if added > 0 { return true }
             } catch {
-                if Self.isConnectionError(error) { setOnline(false) }
+                await refreshSetup()  // a reachable model replying with junk stays online
             }
         }
         return updateList(list.id) { $0.items.append(Item(title: text)) }
-    }
-
-    /// Only network failures mean "offline"; a reachable model replying with junk does not.
-    static func isConnectionError(_ error: Error) -> Bool {
-        guard let e = error as? URLError else { return false }
-        return [.cannotConnectToHost, .cannotFindHost, .timedOut, .networkConnectionLost, .notConnectedToInternet].contains(e.code)
     }
 
     func flashNotice(_ text: String) {
@@ -303,9 +315,8 @@ final class AppModel: ObservableObject {
                     HUD.show(.added(count: result.count, list: result.list))
                 }
             } catch {
-                let online = await Gemma.isReachable()
-                setOnline(online)
-                let failure = online ? "Couldn't parse that" : "Gemma offline"
+                await refreshSetup()
+                let failure = gemmaOnline ? "Couldn't parse that" : "Gemma offline"
                 hud ? HUD.show(.failed(failure)) : flashNotice(failure)
             }
         }
