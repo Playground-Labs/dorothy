@@ -70,7 +70,7 @@ private func rgb(_ hex: UInt32) -> Color {
     Color(red: Double(hex >> 16 & 0xFF) / 255, green: Double(hex >> 8 & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
 }
 
-private let ink = rgb(0x111111)
+private let ink = B.ink
 
 private func mono(_ size: CGFloat) -> Font {
     NSFontManager.shared.availableFontFamilies.contains("Space Mono")
@@ -97,7 +97,7 @@ private struct HUDView: View {
     private var pill: some View {
         HStack(spacing: 8) { content }
             .font(mono(11))
-            .foregroundColor(ink)
+            .foregroundColor(onFill)
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .frame(width: 220, alignment: .leading)
@@ -110,16 +110,22 @@ private struct HUDView: View {
     private var background: Color {
         switch model.state {
         case .listening: rgb(0xFFD60A)
-        case .thinking: .white
+        case .thinking: B.paper
         case .added: rgb(0x22D39A)
         case .failed: rgb(0xFF4FA3)
         }
     }
 
+    /// Text on the accent fills stays dark ink; the paper (thinking) pill follows the theme.
+    private var onFill: Color {
+        if case .thinking = model.state { return B.ink }
+        return B.onAccent
+    }
+
     @ViewBuilder private var content: some View {
         switch model.state {
         case .listening:
-            Circle().fill(rgb(0xFF4FA3)).overlay(Circle().strokeBorder(ink, lineWidth: 2)).frame(width: 16, height: 16)
+            Circle().fill(rgb(0xFF4FA3)).overlay(Circle().strokeBorder(B.onAccent, lineWidth: 2)).frame(width: 16, height: 16)
             TimelineView(.animation) { ctx in
                 let t = ctx.date.timeIntervalSinceReferenceDate
                 let level = CGFloat(model.level())
@@ -128,7 +134,7 @@ private struct HUDView: View {
                     HStack(spacing: 2) {
                         ForEach(0..<7, id: \.self) { i in
                             let wobble = reduceMotion ? 0.8 : 0.55 + 0.45 * abs(sin(t * 6 + Double(i) * 1.3))
-                            Rectangle().fill(ink).frame(width: 3, height: 3 + 15 * level * wobble)
+                            Rectangle().fill(B.onAccent).frame(width: 3, height: 3 + 15 * level * wobble)
                         }
                     }
                     .frame(height: 18)
