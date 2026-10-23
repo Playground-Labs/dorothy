@@ -15,10 +15,10 @@ struct RootView: View {
             }
         }
         .frame(minWidth: m.compact ? 340 : 820, minHeight: 532)  // + 28pt hidden-titlebar safe area = 560 square
-        .background(Color.white, ignoresSafeAreaEdges: [])
-        .overlay(Rectangle().strokeBorder(B.ink, lineWidth: 3))
-        .overlay(alignment: .topLeading) { WindowControls().padding(.leading, 17).padding(.top, 15) }
-        .background(B.ink.opacity(m.fullScreen ? 0 : 1).offset(x: 6, y: 6))  // our hard shadow; the window has none
+        .background(B.ground, ignoresSafeAreaEdges: [])
+        .overlay(Rectangle().strokeBorder(B.shadow, lineWidth: 3))
+        .overlay(alignment: .topLeading) { WindowControls().padding(.leading, 17).padding(.top, 15).environment(\.colorScheme, .light) }  // sits on the yellow rail
+        .background(B.shadow.opacity(m.fullScreen ? 0 : 1).offset(x: 6, y: 6))  // our hard shadow; the window has none
         .padding(m.fullScreen ? 0 : windowMargin)
         .ignoresSafeArea()
         .foregroundColor(B.ink)
@@ -52,16 +52,16 @@ struct WindowControls: View {
     var body: some View {
         let key = state == .key
         HStack(spacing: 8) {
-            control(.close, key ? B.pink : .white, "Close") { m.closeMainWindow() }
-            control(.minus, .white, "Minimize") { m.minimizeMainWindow() }
-            control(.plus, key ? B.mint : .white, "Full screen") { m.zoomMainWindow() }
+            control(.close, key ? B.pink : B.paper, "Close") { m.closeMainWindow() }
+            control(.minus, B.paper, "Minimize") { m.minimizeMainWindow() }
+            control(.plus, key ? B.mint : B.paper, "Full screen") { m.zoomMainWindow() }
         }
         .onHover { hover = $0 }
     }
 
     private func control(_ glyph: Glyph.Kind, _ fill: Color, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Glyph(glyph).stroke(B.ink, lineWidth: 1.8).frame(width: 7, height: 7)
+            Glyph(glyph).stroke(state == .key && glyph != .minus ? B.onAccent : B.ink, lineWidth: 1.8).frame(width: 7, height: 7)
                 .opacity(hover ? 1 : 0)
                 .frame(width: 12, height: 12)
         }
@@ -78,7 +78,7 @@ struct FullView: View {
     var body: some View {
         HStack(spacing: 0) {
             Rail(ns: ns).frame(width: 232)
-            Rectangle().fill(B.ink).frame(width: 3)
+            Rectangle().fill(B.shadow).frame(width: 3)
             if m.showSettings {
                 SettingsView(compact: false).transition(.opacity)
             } else if let list = m.currentList {
@@ -107,11 +107,11 @@ struct Rail: View {
             // The pink dot is the wordmark's period: bottom on the text baseline, just after the "y".
             HStack(alignment: .lastTextBaseline, spacing: 1.5) {
                 Text("Dorothy").font(.display(30)).tracking(-0.9)
-                Circle().fill(B.pink).overlay(Circle().strokeBorder(B.ink, lineWidth: 2)).frame(width: 9.5, height: 9.5)
+                Circle().fill(B.pink).overlay(Circle().strokeBorder(B.onAccent, lineWidth: 2)).frame(width: 9.5, height: 9.5)
                     .alignmentGuide(.lastTextBaseline) { $0[.bottom] }
             }
             .padding(.bottom, 10)
-            Caps("Lists")
+            Caps("Lists", color: B.onAccent)
             // Tabs scroll (no visible scroller); capped at content height so "+ New list" sits right below them.
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 10) {
@@ -123,24 +123,26 @@ struct Rail: View {
             .frame(maxHeight: tabsHeight)
             .padding(.trailing, -6)
             newList
-            if taken { Caps("That name's taken", size: 10, bold: true, track: 0.06).transition(.opacity) }
+            if taken { Caps("That name's taken", size: 10, bold: true, track: 0.06, color: B.onAccent).transition(.opacity) }
             Spacer(minLength: 0)
             Button { m.toggleSettings() } label: {
                 HStack(spacing: 6) {
-                    Glyph(.gear).stroke(m.showSettings ? B.yellow : B.ink, lineWidth: 2).frame(width: 14, height: 14)
-                    Caps("Settings", size: 10, bold: true, track: 0.08, color: m.showSettings ? B.yellow : B.ink)
+                    Glyph(.gear).stroke(m.showSettings ? B.onInk : B.ink, lineWidth: 2).frame(width: 14, height: 14)
+                    Caps("Settings", size: 10, bold: true, track: 0.08, color: m.showSettings ? B.onInk : B.ink)
                 }
                 .padding(.vertical, 5).padding(.horizontal, 8)
             }
-            .buttonStyle(BrutalButtonStyle(fill: m.showSettings ? B.ink : .white, shadow: 3, border: 2))
+            .buttonStyle(BrutalButtonStyle(fill: m.showSettings ? B.inkFill : B.paper, shadow: 3, border: 2))
             HStack(spacing: 8) {
-                Circle().fill(m.gemmaOnline ? B.mint : B.pink).overlay(Circle().strokeBorder(B.ink, lineWidth: 2)).frame(width: 10, height: 10)
-                Caps(m.gemmaOnline ? "Gemma 4 · E4B · Local" : "Offline", track: 0.08)
+                Circle().fill(m.gemmaOnline ? B.mint : B.pink).overlay(Circle().strokeBorder(B.onAccent, lineWidth: 2)).frame(width: 10, height: 10)
+                Caps(m.gemmaOnline ? "Gemma 4 · E4B · Local" : "Offline", track: 0.08, color: B.onAccent)
             }
         }
         .padding(.horizontal, 20).padding(.top, 44).padding(.bottom, 20)
         .frame(maxHeight: .infinity, alignment: .top)
+        .foregroundColor(B.onAccent)  // the rail stays yellow, so its text stays dark ink
         .background(B.yellow, ignoresSafeAreaEdges: [])  // don't bleed into the transparent window margin
+        .environment(\.colorScheme, .light)  // the yellow rail looks the same in both themes
     }
 
     @ViewBuilder private var newList: some View {
@@ -166,7 +168,7 @@ struct Rail: View {
         .frame(height: 18)
         .padding(.vertical, 10).padding(.horizontal, 12)
         .padding(3)
-        .dashedBorder()
+        .dashedBorder(B.onAccent)
         .modifier(Shake(shakes: shakes))
     }
 }
@@ -198,7 +200,7 @@ struct ListTab: View {
             .accessibilityAddTraits(active ? .isSelected : [])
             if hover && m.data.lists.count > 1 {
                 Button { confirm ? m.deleteList(list.id) : (confirm = true) } label: {
-                    Caps(confirm ? "Sure?" : "×", size: confirm ? 10 : 14, bold: true, track: 0.04, color: confirm ? B.ink : B.ink)
+                    Caps(confirm ? "Sure?" : "×", size: confirm ? 10 : 14, bold: true, track: 0.04, color: active && !confirm ? B.ink : B.onAccent)
                         .padding(.horizontal, 4)
                         .background(confirm ? B.pink : .clear)
                 }
@@ -211,9 +213,10 @@ struct ListTab: View {
         .frame(height: 20)
         .padding(.vertical, 10).padding(.horizontal, 12)
         .padding(3)
-        .background(active ? Color.white : .clear)
-        .overlay(Rectangle().strokeBorder(active ? B.ink : .clear, lineWidth: 3))
-        .background(B.ink.opacity(active ? 1 : 0).offset(x: 5, y: 5))
+        .foregroundColor(active ? B.ink : B.onAccent)
+        .background(active ? B.paper : .clear)
+        .overlay(Rectangle().strokeBorder(active ? B.onAccent : .clear, lineWidth: 3))
+        .background(B.onAccent.opacity(active ? 1 : 0).offset(x: 5, y: 5))
         .contentShape(Rectangle())
         .offset(x: hover && !reduceMotion ? 2 : 0)
         .onHover { hover = $0; if !$0 { confirm = false } }
@@ -316,8 +319,8 @@ struct Banners: View {
 
     private func banner(_ title: String, _ detail: String) -> some View {
         HStack(spacing: 12) {
-            Caps(title, size: compact ? 10 : 11, bold: true, track: 0.1).fixedSize()
-            Text(detail).font(.body(compact ? 12 : 14)).lineLimit(1).truncationMode(.middle)
+            Caps(title, size: compact ? 10 : 11, bold: true, track: 0.1, color: B.onAccent).fixedSize()
+            Text(detail).font(.body(compact ? 12 : 14)).foregroundColor(B.onAccent).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 0)
         }
         .padding(.vertical, compact ? 6 : 10).padding(.horizontal, compact ? 10 : 14)
@@ -346,14 +349,14 @@ struct GroupToggle: View {
                   onSelect: { g in m.updateList(list.id) { $0.groupBy = g } }) { g, on in
             if compact {
                 Group {
-                    if g == .priority { Bars(color: on ? B.yellow : B.ink) }
-                    else { Glyph(.calendar).stroke(on ? B.yellow : B.ink, lineWidth: 2).frame(width: 14, height: 14) }
+                    if g == .priority { Bars(color: on ? B.onInk : B.ink) }
+                    else { Glyph(.calendar).stroke(on ? B.onInk : B.ink, lineWidth: 2).frame(width: 14, height: 14) }
                 }
                 .frame(width: 28, height: 28)
                 .accessibilityLabel("Group by \(g.rawValue)")
                 .accessibilityAddTraits(on ? .isSelected : [])
             } else {
-                Caps(g.rawValue, size: 12, bold: true, track: 0.06, color: on ? B.yellow : B.ink)
+                Caps(g.rawValue, size: 12, bold: true, track: 0.06, color: on ? B.onInk : B.ink)
                     .padding(.vertical, 8).padding(.horizontal, 14)
                     .accessibilityLabel("Group by \(g.rawValue)")
                     .accessibilityAddTraits(on ? .isSelected : [])
@@ -431,11 +434,11 @@ struct GroupHeader: View {
     @State private var wiggles = 0
     var body: some View {
         let (fill, fg, tilt): (Color, Color, Double) = switch title {
-        case "High", "Danger zone": (B.pink, B.ink, -2)
-        case "Data": (B.ink, B.yellow, 1.5)
-        case "Medium": (B.orange, B.ink, 1.5)
+        case "High", "Danger zone": (B.pink, B.onAccent, -2)
+        case "Data": (B.inkFill, B.onInk, 1.5)
+        case "Medium": (B.orange, B.onAccent, 1.5)
         case "Low": (B.cobalt, .white, -1)
-        default: (.white, B.ink, index.isMultiple(of: 2) ? -1.5 : 1)
+        default: (B.paper, B.ink, index.isMultiple(of: 2) ? -1.5 : 1)
         }
         HStack(spacing: compact ? 8 : 10) {
             Caps(title, size: compact ? 10 : 11, bold: true, track: 0.1, color: fg)
@@ -483,7 +486,7 @@ struct ItemRow: View {
                         Text(item.title)
                             .font(.body(compact ? 14 : 16, item.done ? .medium : .semibold))
                             .strikethrough(item.done)
-                            .foregroundColor(item.done ? B.grey : B.ink)
+                            .foregroundColor(item.done ? B.grey : m.flash.contains(item.id) ? B.onAccent : B.ink)
                         if let notes = item.notes {
                             Text(notes).font(.body(compact ? 11 : 13)).foregroundColor(B.grey).lineLimit(compact ? 1 : 2)
                         }
@@ -501,7 +504,7 @@ struct ItemRow: View {
         .padding(.vertical, compact ? 8 : 12).padding(.horizontal, compact ? 10 : 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(DeleteReveal(shown: revealed, compact: compact) { m.revealedItem = nil; m.deleteItem(listID, item.id) })
-        .brutalBox(m.flash.contains(item.id) ? B.yellow : item.done ? B.doneBG : .white,
+        .brutalBox(m.flash.contains(item.id) ? B.yellow : item.done ? B.doneBG : B.paper,
                    border: compact ? 2 : 3, shadow: item.done ? 0 : (compact ? 3 : 5) + (lift ? 1 : 0))
         .offset(x: lift ? -1 : 0, y: lift ? -1 : 0)
         .onHover { hover = $0 }
@@ -542,10 +545,10 @@ struct ItemRow: View {
             HStack(spacing: 6) {
                 ForEach(Priority.allCases, id: \.self) { p in
                     let (name, fill, fg): (String, Color, Color) = switch p {
-                    case .high: ("High", B.pink, B.ink)
-                    case .medium: ("Med", B.orange, B.ink)
+                    case .high: ("High", B.pink, B.onAccent)
+                    case .medium: ("Med", B.orange, B.onAccent)
                     case .low: ("Low", B.cobalt, .white)
-                    case .none: ("None", B.ink, .white)
+                    case .none: ("None", B.ink, B.paper)
                     }
                     ChipButton(text: name, on: item.priority == p, fill: fill, fg: fg) { m.updateItem(listID, item.id) { $0.priority = p } }
                 }
@@ -553,14 +556,14 @@ struct ItemRow: View {
             Caps("Deadline", size: 10)
             HStack(spacing: 6) {
                 ForEach(deadlinePresets(), id: \.0) { name, date in
-                    ChipButton(text: name, on: item.deadline == date, fill: B.ink, fg: B.yellow) { m.updateItem(listID, item.id) { $0.deadline = date } }
+                    ChipButton(text: name, on: item.deadline == date, fill: B.inkFill, fg: B.onInk) { m.updateItem(listID, item.id) { $0.deadline = date } }
                 }
                 Spacer(minLength: 0)
                 Button { confirmDelete ? m.deleteItem(listID, item.id) : (confirmDelete = true) } label: {
-                    Caps(confirmDelete ? "Sure?" : "Delete", size: 10, bold: true, track: 0.06)
+                    Caps(confirmDelete ? "Sure?" : "Delete", size: 10, bold: true, track: 0.06, color: confirmDelete ? B.onAccent : B.ink)
                         .padding(.vertical, 4).padding(.horizontal, 7)
                 }
-                .buttonStyle(BrutalButtonStyle(fill: confirmDelete ? B.pink : .white, shadow: 2, border: 2))
+                .buttonStyle(BrutalButtonStyle(fill: confirmDelete ? B.pink : B.paper, shadow: 2, border: 2))
             }
         }
         .padding(.leading, compact ? 26 : 36)
@@ -588,8 +591,8 @@ private struct DeleteReveal: ViewModifier {
                     B.ink.frame(width: compact ? 2 : 3)
                     Button(action: delete) {
                         HStack(spacing: 8) {
-                            Glyph(.trash).stroke(B.ink, style: StrokeStyle(lineWidth: 1.8, lineJoin: .round)).frame(width: 14, height: 14)
-                            if !compact { Text("Delete").font(.body(15, .bold)) }
+                            Glyph(.trash).stroke(B.onAccent, style: StrokeStyle(lineWidth: 1.8, lineJoin: .round)).frame(width: 14, height: 14)
+                            if !compact { Text("Delete").font(.body(15, .bold)).foregroundColor(B.onAccent) }
                         }
                         .frame(width: compact ? 54 : 101)
                         .frame(maxHeight: .infinity)
@@ -623,7 +626,7 @@ struct DeadlineChip: View {
         let hot = date <= t
         Text(hot ? (date < t ? "LATE" : "TODAY") : label(t))
             .font(.mono(compact ? 10 : 11, bold: true))
-            .foregroundColor(hot ? B.ink : .white)
+            .foregroundColor(hot ? B.onAccent : B.paper)
             .padding(.vertical, compact ? 2 : 3).padding(.horizontal, compact ? 5 : 8)
             .brutalBox(hot ? B.pink : B.ink, border: hot ? 2 : 0, shadow: 0)
             .fixedSize()
@@ -676,7 +679,7 @@ struct QuickAdd: View {
                     .background(alignment: .leading) {
                         if text.isEmpty {
                             Text(compact ? "Add or say something…" : "“dentist next tuesday, urgent”")
-                                .font(.body(compact ? 13 : 15)).foregroundColor(Color(hex: "#6B6B6B")).allowsHitTesting(false)
+                                .font(.body(compact ? 13 : 15)).foregroundColor(B.placeholder).allowsHitTesting(false)
                         }
                     }
                 if !compact { Text("↵").font(.mono(11)) }
@@ -702,7 +705,7 @@ struct MicButton: View {
                 case .idle:
                     MicGlyph(line: side > 40 ? 2.2 : 1.8).frame(width: side * 0.36, height: side * 0.43).transition(.pop)
                 case .recording:
-                    Rectangle().fill(.white).overlay(Rectangle().strokeBorder(B.ink, lineWidth: 2.5))
+                    Rectangle().fill(B.paper).overlay(Rectangle().strokeBorder(B.ink, lineWidth: 2.5))
                         .frame(width: side * 0.3, height: side * 0.3).transition(.pop)
                 case .thinking:
                     TimelineView(.animation) { ctx in
@@ -781,8 +784,9 @@ struct CompactView: View {
                 HStack(spacing: 8) {
                     Swatch(hex: list.color, size: 12)
                     Text(list.name).font(.display(18)).tracking(-0.36).lineLimit(1).matchedGeometryEffect(id: "title", in: ns)
+                        .foregroundColor(B.onAccent)
                     Spacer(minLength: 0)
-                    Glyph(.chevron).stroke(B.ink, lineWidth: 2.5).frame(width: 12, height: 8).rotationEffect(.degrees(picking ? 180 : 0))
+                    Glyph(.chevron).stroke(B.onAccent, lineWidth: 2.5).frame(width: 12, height: 8).rotationEffect(.degrees(picking ? 180 : 0))
                 }
                 .padding(.vertical, 6).padding(.horizontal, 10)
             }
@@ -812,7 +816,8 @@ struct CompactView: View {
                         Text("\(l.items.filter { !$0.done }.count)").font(.mono(11))
                     }
                     .padding(.vertical, 8).padding(.horizontal, 10)
-                    .background(l.id == current.id ? B.yellow : .white)
+                    .foregroundColor(l.id == current.id ? B.onAccent : B.ink)
+                    .background(l.id == current.id ? B.yellow : B.paper)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -848,8 +853,8 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Caps("Shortcut")
-                            Text("⌘ ,").font(.system(size: 13, weight: .bold)).foregroundColor(B.yellow)  // system font: Space Mono lacks ⌘
-                                .padding(.horizontal, 7).frame(minHeight: 22).background(B.ink)
+                            Text("⌘ ,").font(.system(size: 13, weight: .bold)).foregroundColor(B.onInk)  // system font: Space Mono lacks ⌘
+                                .padding(.horizontal, 7).frame(minHeight: 22).background(B.inkFill)
                         }
                         .accessibilityElement(children: .ignore).accessibilityLabel("Shortcut: Command comma")
                         Text("Settings").font(.display(compact ? 30 : 44)).tracking(compact ? -0.9 : -1.32)
@@ -861,6 +866,7 @@ struct SettingsView: View {
                     .buttonStyle(BrutalButtonStyle(shadow: 4))
                     .accessibilityLabel("Close settings")
                 }
+                appearanceRow
                 switchRow("Reduce motion", "Turns off hover wiggles, springs and pop-ins. Fades only.", $reduce)
                 switchRow("Show in Dock", "Off = menu bar only. Dorothy keeps running when its window is closed.", $showInDock)
                     .onChange(of: showInDock) { m.applyDockPolicy(reactivate: true) }
@@ -913,10 +919,30 @@ struct SettingsView: View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body(16, .bold))
-                Text(detail).font(.body(13)).foregroundColor(Color(hex: "#444444"))
+                Text(detail).font(.body(13)).foregroundColor(B.muted)
             }
             Spacer(minLength: 0)
             BrutalSwitch(on: on).accessibilityLabel(title)
+        }
+        .padding(.vertical, 14).padding(.horizontal, 16)
+        .brutalBox()
+    }
+
+    private var appearanceRow: some View {
+        let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10)) : AnyLayout(HStackLayout(spacing: 16))
+        return layout {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Appearance").font(.body(16, .bold))
+                Text("Light, dark, or follow macOS.").font(.body(13)).foregroundColor(B.muted)
+            }
+            if !compact { Spacer(minLength: 0) }
+            // The selected fill is B.ink, which is light in dark mode, so its label uses B.paper.
+            Segmented(options: Appearance.allCases, selection: m.appearance, onSelect: { m.appearance = $0 }) { a, on in
+                Caps(a.label, size: 10, bold: true, color: on ? B.paper : B.ink)
+                    .padding(.vertical, 6).padding(.horizontal, 10)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+            }
+            .accessibilityLabel("Appearance")
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
         .brutalBox()
@@ -935,14 +961,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Microphone").font(.body(16, .bold))
                 Text(micMissing ? "Disconnected — recording uses the system default." : "Used for ⌃⌥D and the mic button.")
-                    .font(.body(13)).foregroundColor(Color(hex: "#444444"))
+                    .font(.body(13)).foregroundColor(B.muted)
             }
             if !compact { Spacer(minLength: 0) }
             Button { withAnimation(motion(springy)) { m.micPickerOpen.toggle() } } label: {
                 HStack(spacing: 8) {
-                    Text(micLabel).font(.body(14, .semibold)).lineLimit(1).truncationMode(.middle)
+                    Text(micLabel).font(.body(14, .semibold)).foregroundColor(B.onAccent).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 0)
-                    Glyph(.chevron).stroke(B.ink, lineWidth: 2.5).frame(width: 12, height: 8)
+                    Glyph(.chevron).stroke(B.onAccent, lineWidth: 2.5).frame(width: 12, height: 8)
                         .rotationEffect(.degrees(m.micPickerOpen ? 180 : 0))
                 }
                 .padding(.vertical, 8).padding(.horizontal, 10)
@@ -972,7 +998,8 @@ struct SettingsView: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.vertical, 8).padding(.horizontal, 10)
-                    .background(micID == d.id ? B.yellow : .white)
+                    .foregroundColor(micID == d.id ? B.onAccent : B.ink)
+                    .background(micID == d.id ? B.yellow : B.paper)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1029,12 +1056,12 @@ struct SettingsView: View {
                 typed = ""
             }
         } label: {
-            Text(title + (on ? " ↓" : "")).font(.body(15, .bold)).foregroundColor(on ? B.yellow : B.ink)
+            Text(title + (on ? " ↓" : "")).font(.body(15, .bold)).foregroundColor(on ? B.onInk : B.ink)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12).padding(.horizontal, compact ? 10 : 14)
         }
-        .buttonStyle(BrutalButtonStyle(fill: on ? B.ink : .white, shadow: on ? 0 : 5))
+        .buttonStyle(BrutalButtonStyle(fill: on ? B.inkFill : B.paper, shadow: on ? 0 : 5))
     }
 
     private func confirmCard(_ d: Danger) -> some View {
@@ -1044,7 +1071,7 @@ struct SettingsView: View {
             Text((d == .tasks ? "Deletes every task in every list." : "Deletes every list and every task. MCP agents lose them too.")
                  + " Type the phrase to confirm:")
                 .font(.body(14)).fixedSize(horizontal: false, vertical: true)
-            Text(phrase).font(.mono(16, bold: true)).tracking(0.64)
+            Text(phrase).font(.mono(16, bold: true)).tracking(0.64).foregroundColor(B.onAccent)
                 .padding(.vertical, 6).padding(.horizontal, 10)
                 .brutalBox(B.yellow, border: 2, shadow: 0)
                 .rotationEffect(.degrees(-1))
@@ -1060,10 +1087,10 @@ struct SettingsView: View {
                         withAnimation(motion(springy)) { armed = nil }
                     } label: {
                         Text(d == .tasks ? "Delete all tasks" : "Delete everything").font(.body(14, .bold)).fixedSize()
-                            .foregroundColor(matches ? B.ink : Color(hex: "#888888"))
+                            .foregroundColor(matches ? B.onAccent : B.placeholder)
                             .padding(.vertical, 10).padding(.horizontal, 14)
                     }
-                    .buttonStyle(BrutalButtonStyle(fill: matches ? B.pink : Color(hex: "#E6E6E6"), shadow: matches ? 4 : 0))
+                    .buttonStyle(BrutalButtonStyle(fill: matches ? B.pink : B.disabledBG, shadow: matches ? 4 : 0))
                     .disabled(!matches)
                     Button { withAnimation(motion(springy)) { armed = nil } } label: {
                         Text("Cancel").font(.body(14, .bold)).fixedSize().padding(.vertical, 10).padding(.horizontal, 14)
@@ -1073,7 +1100,7 @@ struct SettingsView: View {
             }
         }
         .padding(13)
-        .brutalBox(Color(hex: "#FFF0F7"), shadow: 0)
+        .brutalBox(B.dangerBG, shadow: 0)
     }
 
     static func newPhrase() -> String {
