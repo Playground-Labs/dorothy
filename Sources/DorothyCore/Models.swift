@@ -16,11 +16,22 @@ public struct Item: Codable, Identifiable, Equatable, Sendable {
     /// Start of the due day in the user's calendar, or nil.
     public var deadline: Date?
     public var createdAt = Date()
+    /// Free-form notes, at most `Item.notesLimit` characters; nil when empty.
+    public var notes: String?
 
-    public init(title: String, priority: Priority = .none, deadline: Date? = nil) {
+    public static let notesLimit = 250
+
+    /// Trimmed and capped at `notesLimit` characters; empty becomes nil.
+    public static func normalizedNotes(_ s: String?) -> String? {
+        guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
+        return String(t.prefix(notesLimit))
+    }
+
+    public init(title: String, priority: Priority = .none, deadline: Date? = nil, notes: String? = nil) {
         self.title = title
         self.priority = priority
         self.deadline = deadline
+        self.notes = Item.normalizedNotes(notes)
     }
 }
 

@@ -459,6 +459,7 @@ struct ItemRow: View {
     @Binding var expanded: UUID?
     @State private var draft = ""
     @State private var base = ""  // title when editing began; only a changed draft is written back
+    @State private var notesDraft = ""
     @State private var confirmDelete = false
     @State private var hover = false
     @FocusState private var focused: Bool
@@ -481,11 +482,16 @@ struct ItemRow: View {
                         .onSubmit { expanded = nil }
                         .onExitCommand { draft = base; expanded = nil }
                 } else {
-                    Text(item.title)
-                        .font(.body(compact ? 14 : 16, item.done ? .medium : .semibold))
-                        .strikethrough(item.done)
-                        .foregroundColor(item.done ? B.grey : m.flash.contains(item.id) ? B.onAccent : B.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title)
+                            .font(.body(compact ? 14 : 16, item.done ? .medium : .semibold))
+                            .strikethrough(item.done)
+                            .foregroundColor(item.done ? B.grey : m.flash.contains(item.id) ? B.onAccent : B.ink)
+                        if let notes = item.notes {
+                            Text(notes).font(.body(compact ? 11 : 13)).foregroundColor(m.flash.contains(item.id) ? B.onAccent : B.grey).lineLimit(compact ? 1 : 2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
@@ -511,16 +517,30 @@ struct ItemRow: View {
             guard !open else { return }
             draft = item.title
             base = item.title
+            notesDraft = item.notes ?? ""
             confirmDelete = false
             withAnimation(motion(springy)) { expanded = item.id }
         }
         .onChange(of: open) { _, isOpen in if !isOpen { commit() } }
         .onChange(of: item.title) { _, t in if draft == base { draft = t; base = t } }  // external rename while editing
+        .onChange(of: item.notes) { old, new in if notesDraft == (old ?? "") { notesDraft = new ?? "" } }
         .onDisappear { if open { commit() } }
     }
 
     private var editor: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Caps("Notes", size: 10)
+                Spacer(minLength: 0)
+                Caps("\(notesDraft.count)/\(Item.notesLimit)", size: 9)
+            }
+            TextField("Add a note…", text: $notesDraft, axis: .vertical).textFieldStyle(.plain)
+                .font(.body(compact ? 12 : 14)).lineLimit(1...4)
+                .padding(.vertical, 4).padding(.horizontal, 7)
+                .brutalBox(border: 2, shadow: 0)
+                .onChange(of: notesDraft) { _, v in
+                    if v.count > Item.notesLimit { notesDraft = String(v.prefix(Item.notesLimit)) }
+                }
             Caps("Priority", size: 10)
             HStack(spacing: 6) {
                 ForEach(Priority.allCases, id: \.self) { p in
@@ -552,6 +572,8 @@ struct ItemRow: View {
     private func commit() {
         let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !t.isEmpty, draft != base, t != item.title { m.updateItem(listID, item.id) { $0.title = t } }
+        let n = Item.normalizedNotes(notesDraft)
+        if n != item.notes { m.updateItem(listID, item.id) { $0.notes = n } }
     }
 }
 
