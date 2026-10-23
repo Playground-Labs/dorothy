@@ -488,7 +488,7 @@ struct ItemRow: View {
                             .strikethrough(item.done)
                             .foregroundColor(item.done ? B.grey : m.flash.contains(item.id) ? B.onAccent : B.ink)
                         if let notes = item.notes {
-                            Text(notes).font(.body(compact ? 11 : 13)).foregroundColor(B.grey).lineLimit(compact ? 1 : 2)
+                            Text(notes).font(.body(compact ? 11 : 13)).foregroundColor(m.flash.contains(item.id) ? B.onAccent : B.grey).lineLimit(compact ? 1 : 2)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
