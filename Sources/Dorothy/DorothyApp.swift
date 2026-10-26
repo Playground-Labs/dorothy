@@ -62,6 +62,11 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Appearance.defaultsKey); applyAppearance() }
     }
     @Published var gemmaOnline = true
+    @Published var ollama = OllamaSetup.State.checking
+    /// Non-nil while the model is downloading via /api/pull.
+    @Published var pull: OllamaSetup.PullProgress?
+    @Published var pullError: String?
+    @Published var showOllamaSetup = false
     @Published var mic = MicState.idle
     @Published var flash: Set<UUID> = []
     @Published var showSettings = false
@@ -91,8 +96,15 @@ final class AppModel: ObservableObject {
         hotKey = HotKey(onPress: { [weak self] in MainActor.assumeIsolated { self?.startRecording(hud: true) } },
                         onRelease: { [weak self] in MainActor.assumeIsolated { self?.finishRecording(hud: true) } })
         Task {
+            var first = true
             while true {
-                setOnline(await Gemma.isReachable())
+                let s = await OllamaSetup.check()
+                setOllama(s)
+                // First open only: offer setup until the user dismisses it once.
+                if first, OllamaSetup.shouldOfferOnLaunch(s, dismissed: UserDefaults.standard.bool(forKey: OllamaSetup.dismissedKey)) {
+                    withAnimation(motion(springy)) { showOllamaSetup = true }
+                }
+                first = false
                 try? await Task.sleep(for: .seconds(10))
             }
         }
@@ -234,6 +246,53 @@ final class AppModel: ObservableObject {
 
     private func setOnline(_ online: Bool) {
         if online != gemmaOnline { withAnimation(motion(springy)) { gemmaOnline = online } }
+    }
+
+    // MARK: Ollama setup
+
+    /// Online keeps meaning "the server answers", as before; a missing model shows in the setup panel.
+    private func setOllama(_ s: OllamaSetup.State) {
+        if s != ollama { withAnimation(motion(springy)) { ollama = s } }
+        setOnline(s == .ready || s == .missingModel)
+    }
+
+    func refreshOllama() { Task { setOllama(await OllamaSetup.check()) } }
+
+    func downloadOllama() { NSWorkspace.shared.open(OllamaSetup.downloadPage) }
+
+    func startOllama() {
+        guard let app = OllamaSetup.appURL() else { flashNotice("Run: ollama serve"); return }
+        NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            refreshOllama()
+        }
+    }
+
+    func pullModel() {
+        guard pull == nil else { return }
+        pull = OllamaSetup.PullProgress(status: "starting")
+        pullError = nil
+        Task {
+            do {
+                try await OllamaSetup.pull { p in Task { @MainActor in if self.pull != nil { self.pull = p } } }
+                pull = nil
+                refreshOllama()
+            } catch {
+                pullError = error.localizedDescription
+                pull = nil
+            }
+        }
+    }
+
+    func dismissOllamaSetup() {
+        withAnimation(motion(springy)) { showOllamaSetup = false }
+        UserDefaults.standard.set(true, forKey: OllamaSetup.dismissedKey)
+    }
+
+    func openOllamaSetup() {
+        showMainWindow()
+        withAnimation(motion(springy)) { showOllamaSetup = true }
     }
 
     // MARK: Input

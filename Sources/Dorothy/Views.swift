@@ -14,6 +14,9 @@ struct RootView: View {
                 FullView(ns: ns).transition(.opacity)
             }
         }
+        .overlay {
+            if m.showOllamaSetup { OllamaSetupModal(compact: m.compact).transition(.opacity) }
+        }
         .frame(minWidth: m.compact ? 340 : 820, minHeight: 532)  // + 28pt hidden-titlebar safe area = 560 square
         .background(B.ground, ignoresSafeAreaEdges: [])
         .overlay(Rectangle().strokeBorder(B.shadow, lineWidth: 3))
@@ -30,7 +33,9 @@ struct RootView: View {
                 // Main-menu equivalents, so ⌘Q/⌘W still work in menu-bar-only (.accessory) mode.
                 Button("") { NSApp.terminate(nil) }.keyboardShortcut("q", modifiers: .command)
                 Button("") { m.closeMainWindow() }.keyboardShortcut("w", modifiers: .command)
-                if m.showSettings {
+                if m.showOllamaSetup {
+                    Button("") { m.dismissOllamaSetup() }.keyboardShortcut(.escape, modifiers: [])
+                } else if m.showSettings {
                     Button("") {
                         if m.micPickerOpen { withAnimation(motion(springy)) { m.micPickerOpen = false } } else { m.toggleSettings() }
                     }
@@ -312,7 +317,11 @@ struct Banners: View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
             if let e = m.dataError { banner(e.title, e.detail) }
             if !m.gemmaOnline {
-                banner("Gemma offline", compact ? "Saved as typed." : "Items are saved as typed. Start Ollama to parse dates & priorities.")
+                Button { m.openOllamaSetup() } label: {
+                    banner("Gemma offline", compact ? "Saved as typed. Set up Ollama." : "Items are saved as typed. Set up Ollama in Settings to parse dates & priorities.")
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens Ollama setup")
             }
         }
     }
@@ -871,6 +880,7 @@ struct SettingsView: View {
                 switchRow("Show in Dock", "Off = menu bar only. Dorothy keeps running when its window is closed.", $showInDock)
                     .onChange(of: showInDock) { m.applyDockPolicy(reactivate: true) }
                 micRow
+                ollamaRow
                 VStack(alignment: .leading, spacing: 12) {
                     GroupHeader(title: "Data", index: 0, compact: false)
                     HStack(spacing: 12) {
@@ -980,6 +990,19 @@ struct SettingsView: View {
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
         .brutalBox()
+    }
+
+    private var ollamaRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Local model (Ollama)").font(.body(16, .bold))
+                Text("Gemma parses dates & priorities on this Mac.").font(.body(13)).foregroundColor(B.muted)
+            }
+            OllamaSetupPanel(compact: compact)
+        }
+        .padding(.vertical, 14).padding(.horizontal, 16)
+        .brutalBox()
+        .onAppear { m.refreshOllama() }
     }
 
     private var micMenu: some View {
