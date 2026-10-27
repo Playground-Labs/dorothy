@@ -852,6 +852,7 @@ struct SettingsView: View {
     @State private var typed = ""
     @FocusState private var fieldFocused: Bool
     @State private var dataResult: (ok: Bool, text: String)?
+    @State private var copied: String?
 
     enum Danger { case tasks, lists }
 
@@ -881,6 +882,17 @@ struct SettingsView: View {
                     .onChange(of: showInDock) { m.applyDockPolicy(reactivate: true) }
                 micRow
                 ollamaRow
+                VStack(alignment: .leading, spacing: 12) {
+                    GroupHeader(title: "Connect an AI agent", index: 0, compact: false)
+                    Text("Claude and other MCP clients can read and update your lists. Changes show up here live.")
+                        .font(.body(13)).foregroundColor(Color(hex: "#444444"))
+                        .fixedSize(horizontal: false, vertical: true)
+                    snippet("Claude Code", MCPSetup.claudeCodeCommand(serverPath: mcpServerPath))
+                    snippet("Other MCP clients (JSON)", MCPSetup.jsonConfig(serverPath: mcpServerPath))
+                    Text("Then ask your agent things like \"what's due this week?\"")
+                        .font(.body(13)).foregroundColor(Color(hex: "#444444"))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 VStack(alignment: .leading, spacing: 12) {
                     GroupHeader(title: "Data", index: 0, compact: false)
                     HStack(spacing: 12) {
@@ -1003,6 +1015,35 @@ struct SettingsView: View {
         .padding(.vertical, 14).padding(.horizontal, 16)
         .brutalBox()
         .onAppear { m.refreshOllama() }
+    }
+
+    private var mcpServerPath: String {
+        MCPSetup.serverURL(appExecutable: Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])).path
+    }
+
+    private func snippet(_ label: String, _ text: String) -> some View {
+        let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10)) : AnyLayout(HStackLayout(spacing: 16))
+        return VStack(alignment: .leading, spacing: 8) {
+            layout {
+                Text(label).font(.body(14, .bold))
+                if !compact { Spacer(minLength: 0) }
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    withAnimation(motion(springy)) { copied = label }
+                } label: {
+                    Text(copied == label ? "Copied ✓" : "Copy").font(.body(13, .bold)).lineLimit(1)
+                        .padding(.vertical, 6).padding(.horizontal, 12)
+                }
+                .buttonStyle(BrutalButtonStyle(shadow: 3))
+                .accessibilityLabel("Copy \(label) setup")
+            }
+            Text(text).font(.mono(12)).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10).padding(.horizontal, 12)
+                .brutalBox(shadow: 0)
+        }
     }
 
     private var micMenu: some View {
