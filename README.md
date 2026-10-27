@@ -40,6 +40,7 @@ You need a Mac on macOS 14 or later.
    brew services start ollama
    ollama pull gemma4:e4b
    ```
+   Or skip this step: on first open Dorothy offers to download Ollama and the model for you, and it's always in **Settings → Local model**.
 2. Build and open Dorothy:
    ```sh
    scripts/bundle.sh && open build/Dorothy.app
